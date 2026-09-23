@@ -13,7 +13,7 @@
 # 
 # The problem I tried to study is to find out if increased use of AI tools is actually associated with higher developers productivity or if it brings more issues related to additional debugging, verification, and rework.
 # 
-# This project aims to utilize data metrics such as coding hours, AI usage, bugs reported, task success, etc to learn and examine developers productivity. Besides, this project will also examine which technologies topics are receiving increased developer attention since the widespread adoption of generative AI.
+# This project aims to utilize data metrics such as coding hours, AI usage hours, bugs reported, task success, etc to learn and examine developers productivity. Besides, this project will also examine which technologies topics are receiving increased developer attention since the widespread adoption of generative AI.
 
 # ## Project Question
 # *What specific question are you seeking to answer with this project?*
