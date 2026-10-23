@@ -8,6 +8,9 @@ ipykernel = "*"
 jupyter = "*"
 notebook = "*"
 black = "*"
+numpy = "*"
+pandas = "*"
+requests = "*"
 
 [dev-packages]
 
