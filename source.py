@@ -77,7 +77,7 @@
 # In[100]:
 
 
-get_ipython().system('pip install python-dotenv matplotlib seaborn')
+get_ipython().system('pip install python-dotenv matplotlib seaborn scikit-learn')
 
 
 # In[101]:
@@ -671,6 +671,35 @@ fig.show()
 
 # This results suggest that among respondents who don't use AI tools and don't plan to, 60.7% **highly distrust** AI. In contrast, among daily AI users, 44.0% **somewhat trust** AI and 5.4% **highly trust** it. This suggests an association between AI usage frequency and trust, but it doesn't suggest causation.
 
+# ### Stack Overflow: AI Frustrations
+# In this section, I will look at the frustrations reported by AI users. I keep respondents whose `AISelect` answer starts with "Yes", then split `AIFrustration` because each respondent can choose more than one answer.
+
+# In[146]:
+
+
+# Keep AI users only
+AI_users_df = stackoverflow_frustration_df[
+    stackoverflow_frustration_df["AISelect"].str.startswith("Yes")
+]
+
+frustration_counts = (
+    AI_users_df["AIFrustration"].str.split(";").explode().value_counts()
+)
+
+# Percentage of AI users who selected each frustration
+frustration_percent = (frustration_counts / len(AI_users_df) * 100).round(1)
+
+fig = px.bar(frustration_percent.sort_values(), orientation="h",
+             labels={"value": "Percentage of AI Users", "AIFrustration": "Frustration"},
+             title="Frustrations Reported by AI Users")
+fig.update_layout(showlegend=False)
+fig.show()
+
+
+# 24,827 AI users who answered this question, about three in four (74.9%) said AI gives answers that are "almost right, but not quite." Almost half (48.5%) said debugging AI-generated code takes more time. Only 4.5% said they haven't run into any problems.
+# 
+# This fits the second part of my hypothesis: using AI often means extra time spent checking and fixing its output. It could also help explain the METR results above. AI-allowed tasks weren't clearly faster there, and they took slightly more post-review time (22.4 vs 17.9 minutes on average).
+
 # ### Artificial Analysis
 # In this section, I will examine the coding index of the most 5 models used reported from Stack Overflow data, and comparing their score using Artificial Analysis data.
 
@@ -717,9 +746,126 @@ top5_families
 # 
 
 # ## Machine Learning Plan
-# Since I have 3 different datasets, and I do not join these datasets so decide which one to use for the Machine Learning part is quite difficult. I want to answer the question if we evaluate AI usage, pior experience, and estimated task time, could we predict developer task completion time. 
 # 
-# I plan to use Linear Regression and METR dataset to predict task completion time, the model will use features such as AI usage, pior expericence, and 
+# Since I have 3 different datasets and I do not join them, I need to choose one dataset for the machine learning part. The Stack Overflow survey contains mostly multiple-choice text answers, and the Artificial Analysis data contains benchmark scores of AI models, not information about developers or tasks. The METR dataset is the only one that has one row per task with a measured outcome (time), so I will use METR for this part.
+# 
+# ### What type of machine learning model are you planning to use?
+# 
+# I want to answer this question: if we know AI usage, prior experience, and the developer's estimated task time, can we predict how long a developer takes to complete a task?
+# 
+# The target `initialImplementationTime` is a number (minutes), so this is a supervised **regression** problem. I plan to use **Linear Regression** because it is simple and its coefficients show how each feature (for example AI-allowed vs AI-disallowed) is related to completion time. I will also compare it with a baseline model that always predicts the median time, so I can check if the model actually learns something.
+# 
+# - **Data:** `metr_complete_df` (828 completed tasks)
+# - **Target:** `initialImplementationTime`
+# - **Features** (all known before the task starts):
+#   - `treatmentAssignment` (AI-allowed / AI-disallowed)
+#   - `priorExperience` (1-5)
+#   - `estimatedTime`: the developer's estimate for the assigned condition (`estimatedTimeWithAI` for AI-allowed tasks, `estimatedTimeWithoutAI` for AI-disallowed tasks)
+# 
+# ### What are the challenges you have identified/are you anticipating in building your machine learning model?
+# 
+# 1. **Data leakage:** `estimatedTimeOtherTreatment`, `postReviewImplementationTime`, and `perceivedEffort` are recorded after the task is finished. `estimatedTimeOtherTreatment` has a 0.78 correlation with the target, so using it would make the model look much better than it really is.
+# 2. **Skewed target and outliers:** from the EDA, `initialImplementationTime` is right-skewed (median 87 minutes, max 1685 minutes). A few very long tasks can pull the regression line and make the errors large.
+# 3. **Same developers appear many times:** the 828 tasks come from only 53 developers (from 1 to 75 tasks each). If I split the data randomly, the same developer can be in both the training and test set, so the test score would be too optimistic.
+# 4. **Correlated features:** `estimatedTimeWithAI` and `estimatedTimeWithoutAI` have a 0.86 correlation, so using both would make the coefficients hard to interpret.
+# 5. **Small and limited data:** only completed tasks have a time value, so the model only represents completed tasks, not incomplete or ditched tasks. Also, `priorExperience` has a weak correlation with the target (-0.09), so most of the prediction may come from the developer's estimate.
+# 
+# ### How are you planning to address these challenges?
+# 
+# 1. I will only use features that are available before the task starts and drop the three post-task columns.
+# 2. I will train the model on the log of the time (`np.log1p`) and convert the predictions back to minutes (`np.expm1`). I will keep the outliers because long tasks are real tasks, and I will report MAE (less sensitive to outliers) together with RMSE and R².
+# 3. I will split the data by developer using `GroupShuffleSplit` (80% train / 20% test) on `developerId`, and use `GroupKFold` cross-validation on the training set, so developers in the test set are never seen during training.
+# 4. I will use only one estimate per task, the one that matches the assigned condition, instead of both estimate columns.
+# 5. I will clearly state that the results only apply to completed tasks, use cross-validation to get a more stable score from the small dataset, and compare the model with the median baseline.
+
+# ## Machine Learning Model
+# 
+# In this section, I will build a Linear Regression model on the METR data to predict `initialImplementationTime` from AI usage, prior experience, and the developer's estimated time.
+
+# In[ ]:
+
+
+from sklearn.compose import ColumnTransformer
+from sklearn.dummy import DummyRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
+from sklearn.model_selection import GroupKFold, GroupShuffleSplit, cross_validate
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+
+
+# ### Step 1: Prepare Features and Target
+
+# In[ ]:
+
+
+ml_df = metr_complete_df.copy()
+
+# TODO: create `estimatedTime` = estimatedTimeWithAI for AI-allowed tasks,
+#       estimatedTimeWithoutAI for AI-disallowed tasks (hint: np.where)
+
+# TODO: X = ml_df[["treatmentAssignment", "priorExperience", "estimatedTime"]]
+# TODO: y = np.log1p(ml_df["initialImplementationTime"])
+# TODO: groups = ml_df["developerId"]
+
+
+# ### Step 2: Split Train and Test Sets by Developer
+
+# In[ ]:
+
+
+# TODO: GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+# TODO: get train_idx, test_idx from splitter.split(X, y, groups)
+# TODO: X_train, X_test, y_train, y_test, groups_train
+# TODO: check that no developerId appears in both train and test
+
+
+# ### Step 3: Baseline Model
+
+# In[ ]:
+
+
+# TODO: DummyRegressor(strategy="median"), fit on X_train, y_train
+# TODO: predict on X_test, convert back to minutes with np.expm1
+# TODO: compute MAE, RMSE, R² in minutes
+
+
+# ### Step 4: Linear Regression Model
+
+# In[ ]:
+
+
+# TODO: ColumnTransformer: OneHotEncoder(drop="first") for treatmentAssignment,
+#       passthrough for priorExperience and estimatedTime
+# TODO: Pipeline([("prep", preprocessor), ("model", LinearRegression())])
+# TODO: cross_validate on the training set with GroupKFold(n_splits=5), groups=groups_train
+# TODO: print mean and std of the CV scores
+
+
+# ### Step 5: Evaluate on the Test Set
+
+# In[ ]:
+
+
+# TODO: fit the pipeline on the full training set
+# TODO: predict on X_test, convert back to minutes with np.expm1
+# TODO: compute MAE, RMSE, R² and compare with the baseline in one table
+# TODO: plot predicted vs actual time (log scale)
+
+
+# ### Step 6: Interpret the Coefficients
+
+# In[ ]:
+
+
+# TODO: get feature names from the preprocessor and coefficients from the model
+# TODO: show them in a DataFrame
+# TODO: because y is log(time), exp(coef) - 1 is the % change in time per unit of the feature
+
+
+# ### Machine Learning Results
+# 
+# TODO: summarize the model performance compared with the baseline, what the AI-allowed coefficient says about completion time, and the limitations (completed tasks only, small number of developers).
 
 # ## Resources and References
 # *What resources and references have you used for this project?*
