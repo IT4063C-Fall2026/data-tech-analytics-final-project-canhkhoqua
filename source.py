@@ -74,13 +74,13 @@
 # # Setup and Import Libraries
 # 
 
-# In[91]:
+# In[100]:
 
 
-get_ipython().system('pip install python-dotenv matplotlib')
+get_ipython().system('pip install python-dotenv matplotlib seaborn')
 
 
-# In[92]:
+# In[101]:
 
 
 # Import libraries
@@ -92,6 +92,7 @@ import pandas as pd
 import requests
 import matplotlib.pyplot as plt
 import plotly.express as px
+import seaborn as sns
 
 
 # # Data Import
@@ -100,20 +101,20 @@ import plotly.express as px
 
 # ### Import METR Data 
 
-# In[93]:
+# In[102]:
 
 
 metr_df = pd.read_csv("data/raw/osdp.csv")
 metr_df.shape
 
 
-# In[94]:
+# In[103]:
 
 
 metr_df.head()
 
 
-# In[95]:
+# In[104]:
 
 
 metr_df.info()
@@ -123,20 +124,20 @@ metr_df.info()
 # 
 # Because the original dataset is over 100MB, I couldn't push it to GitHub without setting up GitHub LFS, please download the data source from [Stack Overflow Developer Survey 2025](tps://github.com/StackExchange/Survey/blob/main/packages/archive/2025/results.csv) and rename it to `stackoverflowdata.csv` and move it to `data/raw`
 
-# In[96]:
+# In[105]:
 
 
 stackoverflow_df = pd.read_csv("data/raw/stackoverflowdata.csv")
 stackoverflow_df.shape
 
 
-# In[97]:
+# In[106]:
 
 
 stackoverflow_df.head()
 
 
-# In[98]:
+# In[107]:
 
 
 stackoverflow_df.info()
@@ -149,49 +150,58 @@ stackoverflow_df.info()
 # 
 # I use `ARTIFICIAL_ANALYSIS_API_KEY` set in .env file. The code will read all pages and keep the retrieval date in `model_scores_df`.
 # 
+# The API response is saved to `data/raw/artificial_analysis_models.json`. If this file exists, the code loads it instead of calling the API again. I use the snapshot retrieved on October 20, 2026, because the free endpoint later stopped returning Coding Index scores, so a new API call would leave no models to compare.
+# 
 # The Coding Index describes performance on coding benchmarks. It does not measure the time a developer spends coding.
 # 
 
-# In[99]:
+# In[108]:
 
 
 # Import model benchmark data from Artificial Analysis.
-load_dotenv(".env")
-aa_api_key = os.getenv("ARTIFICIAL_ANALYSIS_API_KEY", "")
-if not aa_api_key:
-    raise ValueError("An Artificial Analysis API key is required.")
-url = "https://artificialanalysis.ai/api/v2/language/models/free"
+aa_path = "data/raw/artificial_analysis_models.json"
 
-model_records = []
-page = 1
+if os.path.exists(aa_path):
+    # Use the saved snapshot so results stay the same across runs
+    model_scores_df = pd.read_json(aa_path, orient="records", dtype=False)
+else:
+    load_dotenv(".env")
+    aa_api_key = os.getenv("ARTIFICIAL_ANALYSIS_API_KEY", "")
+    if not aa_api_key:
+        raise ValueError("An Artificial Analysis API key is required.")
+    url = "https://artificialanalysis.ai/api/v2/language/models/free"
 
-# Fetch all pages of model benchmark data
-while True:
-    response = requests.get(
-        url,
-        headers={"x-api-key": aa_api_key},
-        params={"page": page},
-        timeout=30
+    model_records = []
+    page = 1
+
+    # Fetch all pages of model benchmark data
+    while True:
+        response = requests.get(
+            url,
+            headers={"x-api-key": aa_api_key},
+            params={"page": page},
+            timeout=30
+        )
+        response.raise_for_status()
+        data = response.json()
+        model_records.extend(data["data"])
+
+        if not data["pagination"]["has_more"]:
+            break
+        page += 1
+
+    model_scores_df = pd.json_normalize(model_records)
+    model_scores_df["retrieved_at"] = pd.Timestamp.now(tz="UTC")
+    model_scores_df.to_json(
+        aa_path,
+        orient="records",
+        date_format="iso"
     )
-    response.raise_for_status()
-    data = response.json()
-    model_records.extend(data["data"])
 
-    if not data["pagination"]["has_more"]:
-        break
-    page += 1
-
-model_scores_df = pd.json_normalize(model_records)
-model_scores_df["retrieved_at"] = pd.Timestamp.now(tz="UTC")
-model_scores_df.to_json(
-    "data/raw/artificial_analysis_models.json",
-    orient="records",
-    date_format="iso"
-)
 model_scores_df.head()
 
 
-# In[100]:
+# In[109]:
 
 
 model_scores_df.info()
@@ -206,7 +216,7 @@ model_scores_df.info()
 # 
 # At first, I want to see a overview of METR dataset by using describe() 
 
-# In[101]:
+# In[110]:
 
 
 metr_df.describe()
@@ -214,7 +224,7 @@ metr_df.describe()
 
 # I see some abnormal values on time related columns. For example, `initialImplementationTime` can be right-skewed because its mean value is 159.29, but median is 87, and max is 1685. Mean is much higher than median, there may be some long time tasks making mean value higher. But I'll first check missing values and duplicated values and then will check the describe statistical again.
 
-# In[102]:
+# In[111]:
 
 
 metr_df.isnull().sum()
@@ -225,13 +235,13 @@ metr_df.isnull().sum()
 # Next, I will check which task statuses have these missing values. This will help me decide which tasks to use for each comparison.
 # 
 
-# In[103]:
+# In[112]:
 
 
 metr_df["status"].value_counts()
 
 
-# In[104]:
+# In[113]:
 
 
 missing_fields = metr_df.columns[metr_df.isnull().any()]
@@ -247,7 +257,7 @@ metr_missing_by_status
 # Next, I will check for duplicate task IDs.
 # 
 
-# In[105]:
+# In[114]:
 
 
 metr_df["id"].duplicated().sum()
@@ -257,7 +267,7 @@ metr_df["id"].duplicated().sum()
 # 
 # I will keep 3 statuses (complete, incomplete, and ditched tasks) for the task completion analysis and exclude 5 records labeled cheating or corrupted. For time and effort comparisons, I will use completed tasks, any analysis established for this dataframe will not represent the rest of the dataset. I will keep the original DataFrame and will not fill missing values with 0.
 
-# In[106]:
+# In[115]:
 
 
 # Keep the three status for the status comparison
@@ -267,7 +277,15 @@ metr_status_df = metr_df[metr_df['status'].isin(['complete','ditched','incomplet
 metr_complete_df = metr_status_df[metr_status_df['status'] == 'complete'].copy()
 
 
-# In[107]:
+# ### Check for data correlation in METR dataset
+
+# In[116]:
+
+
+sns.heatmap(metr_complete_df.corr(numeric_only=True), annot=True, fmt=".2f", cmap="coolwarm")
+
+
+# In[117]:
 
 
 metr_complete_df.describe()
@@ -275,7 +293,7 @@ metr_complete_df.describe()
 
 # These values are still a little abnormal, so I will sketch a histogram to check the distribution of `initialImplementationTime`
 
-# In[108]:
+# In[118]:
 
 
 fig = plt.figure(figsize=(10, 6))
@@ -297,7 +315,7 @@ plt.show()
 # I will keep `ResponseId` and `AIModelsHaveWorkedWith` in `stackoverflow_models_df` for the model usage question. I will count the available model answers later in the EDA.
 # 
 
-# In[ ]:
+# In[119]:
 
 
 stackoverflow_models_df = stackoverflow_df[
@@ -313,7 +331,7 @@ model_counts = (
 model_counts
 
 
-# In[122]:
+# In[120]:
 
 
 stackoverflow_models_df.duplicated().sum()
@@ -321,10 +339,10 @@ stackoverflow_models_df.duplicated().sum()
 
 # No duplicate ResponseId values were found, so no responses were removed at this step.
 
-# I will keep the 10 columns selected for the project. The usage, trust, and frustration questions will focus on `AISelect`, `AIAcc`, and `AIFrustration`. `AISent` and `AIComplex` will be used to answer further questions on people who use AI frequently and somewhat trust it to see how they think about it
+# I will keep the 10 columns selected for the project. The usage, trust, and frustration questions will focus on `AISelect`, `AIAcc`, and `AIFrustration`.
 # 
 
-# In[110]:
+# In[121]:
 
 
 # Keep the columns used in the analysis.
@@ -348,7 +366,7 @@ stackoverflow_df.head()
 # Next, I will check which of the selected columns have missing values.
 # 
 
-# In[111]:
+# In[122]:
 
 
 stackoverflow_df.isna().sum()
@@ -358,7 +376,7 @@ stackoverflow_df.isna().sum()
 # 
 # 
 
-# In[119]:
+# In[123]:
 
 
 # Keep available responses for AI usage analysis.
@@ -375,7 +393,7 @@ stackoverflow_frustration_df = stackoverflow_df[
 ].dropna().copy()
 
 
-# In[121]:
+# In[124]:
 
 
 stackoverflow_usage_df.value_counts()
@@ -386,7 +404,7 @@ stackoverflow_usage_df.value_counts()
 # For Artificial Analysis data, I will keep the model `name`, `creator`, `release_date`, `coding_index`, and `retrieval_date`. I will rename `evaluations.artificial_analysis_coding_index` to `coding_index` and models without a score will be left out of the benchmark comparison.
 # 
 
-# In[113]:
+# In[125]:
 
 
 col_used = ["name",
@@ -402,19 +420,19 @@ model_scores_df.head()
 
 # Next, I will rename column to `coding_index` and remove missing values from `coding_index`.
 
-# In[114]:
+# In[126]:
 
 
 model_scores_df= model_scores_df.rename(columns={"evaluations.artificial_analysis_coding_index": "coding_index"})
 
 
-# In[202]:
+# In[127]:
 
 
 model_scores_df.isna().sum()
 
 
-# In[203]:
+# In[128]:
 
 
 model_scores_df = model_scores_df.dropna().copy()
@@ -422,7 +440,7 @@ model_scores_df = model_scores_df.dropna().copy()
 
 # I will check duplicated values
 
-# In[116]:
+# In[129]:
 
 
 model_scores_df.duplicated().sum()
@@ -430,14 +448,14 @@ model_scores_df.duplicated().sum()
 
 # Since this benchmark comparison is based on the 2025 survey data, I will only include AI models with a release_date on or before December 31, 2025.
 
-# In[117]:
+# In[130]:
 
 
 model_scores_df = model_scores_df[model_scores_df['release_date']<="2025-12-31"].copy()
 model_scores_df.info()
 
 
-# In[171]:
+# In[131]:
 
 
 model_scores_df.head(10)
@@ -445,7 +463,7 @@ model_scores_df.head(10)
 
 # To keep the comparison focused, I keep the five most reported model families. For each family, I will then keep up to five benchmark versions with the highest Coding Index scores.
 
-# In[ ]:
+# In[132]:
 
 
 # Map model name to their family
@@ -485,7 +503,7 @@ top5_families
 # 
 # I removed OpenAI's image generation models because they are not used for coding. Next, I will use these five families to look up the Coding Index scores of their model versions from Artificial Analysis.
 
-# In[308]:
+# In[133]:
 
 
 benchmark_family_df = model_scores_df.copy()
@@ -515,7 +533,7 @@ benchmark_family_df = benchmark_family_df.dropna(subset=["model_family"]).copy()
 benchmark_family_df[["name", "model_family", "coding_index", "release_date"]].sample(5)
 
 
-# In[318]:
+# In[134]:
 
 
 # Keep 2 highest score model per model family
@@ -529,13 +547,58 @@ top_benchmark_df[["name", "model_family", "coding_index"]]
 
 # In this section, I'll start exploring the chosen dataset including 
 
+# ## METR Data
+# 
+# ### METR: Productivity With and Without AI
+# In this section, I will compare AI-allowed and AI-disallowed tasks. I use `metr_complete_df` for implementation time, post-review time, and perceived effort, and `metr_status_df` for the completion rate. Because the time columns are right-skewed on the above visulization, I will report the median implementation time instead of the mean.
+
+# In[135]:
+
+
+# Compare time and effort on completed tasks
+metr_summary = metr_complete_df.groupby("treatmentAssignment").agg(
+    completed_tasks=("id", "count"),
+    median_implementation_time=("initialImplementationTime", "median"),
+    mean_post_review_time=("postReviewImplementationTime", "mean"),
+    mean_perceived_effort=("perceivedEffort", "mean")
+)
+
+# Completion rate uses complete, incomplete, and ditched tasks
+metr_summary["completion_rate"] = (
+    metr_status_df.groupby("treatmentAssignment")["status"]
+    .apply(lambda x: (x == "complete").mean() * 100)
+)
+
+metr_summary.round(2)
+
+
+# In[136]:
+
+
+fig = px.box(metr_complete_df, x="treatmentAssignment", y="initialImplementationTime",
+             log_y=True,
+             labels={"treatmentAssignment": "Treatment",
+                     "initialImplementationTime": "Initial Implementation Time (minutes, log scale)"},
+             title="Initial Implementation Time by AI Treatment (Completed Tasks)")
+fig.show()
+
+
+# AI-allowed tasks have a higher completion rate (75.7%) than AI-disallowed tasks (70.6%).
+# Findings:
+# 
+# - The median implementation time is 90 minutes for AI-allowed tasks and 82.5 minutes for AI-disallowed tasks.
+# - The mean post-review time is a little higher for AI-allowed tasks (22.4 vs 17.9 minutes). 
+# - The mean perceived effort is almost the same (2.62 vs 2.59).
+# 
+# Overall, AI-allowed tasks were completed slightly more often, but they were not clearly faster, did not need less post-review work, and did not feel easier.
+
 # ## Stack Overflow Data
 # 
 
 # ### Stack Overflow: AI Usage Frequency
 # In this section, I will examine how frequently developers use AI tools by counting the responses in each `AISelect` category in `stackoverflow_usage_df`.
 
-# In[134]:
+# In[137]:
 
 
 AI_counts = stackoverflow_usage_df["AISelect"].value_counts()
@@ -562,7 +625,7 @@ stackoverflow_trust_df["AIAcc"].value_counts()
 
 # Then, I'd like to see the amount of people who use AI and their trust on those.
 
-# In[316]:
+# In[139]:
 
 
 #trust_counts = pd.crosstab(stackoverflow_trust_df["AISelect"], 
@@ -590,7 +653,7 @@ trust_percent = trust_percent.round(1)
 trust_percent
 
 
-# In[169]:
+# In[140]:
 
 
 fig = px.bar(
@@ -611,7 +674,7 @@ fig.show()
 # ### Artificial Analysis
 # In this section, I will examine the coding index of the most 5 models used reported from Stack Overflow data, and comparing their score using Artificial Analysis data.
 
-# In[346]:
+# In[142]:
 
 
 fig = px.bar(top_benchmark_df, x="model_family", y="coding_index", color="name",
@@ -640,7 +703,7 @@ fig.update_layout(
 fig.show()
 
 
-# In[347]:
+# In[143]:
 
 
 top5_families
@@ -652,6 +715,11 @@ top5_families
 # 
 # Therefore, this chart doesn't suggest that developers choose a model because of its Coding Index, or that a higher score leads to higher productivity.
 # 
+
+# ## Machine Learning Plan
+# Since I have 3 different datasets, and I do not join these datasets so decide which one to use for the Machine Learning part is quite difficult. I want to answer the question if we evaluate AI usage, pior experience, and estimated task time, could we predict developer task completion time. 
+# 
+# I plan to use Linear Regression and METR dataset to predict task completion time, the model will use features such as AI usage, pior expericence, and 
 
 # ## Resources and References
 # *What resources and references have you used for this project?*
@@ -671,7 +739,7 @@ top5_families
 # 
 # I used AI tools to refine project scope and data analysis ideas, improve written explanations. I also used AI to help compare my project scope with the available datasets to ensure the data I selected could actually help answer the questions. I reviewed the final analysis, interpretations, and conclusions myself.
 
-# In[118]:
+# In[144]:
 
 
 # ⚠️ Make sure you run this cell at the end of your notebook before every submission!
