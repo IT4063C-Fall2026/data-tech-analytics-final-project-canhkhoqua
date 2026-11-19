@@ -74,13 +74,13 @@
 # # Setup and Import Libraries
 # 
 
-# In[100]:
+# In[2]:
 
 
 get_ipython().system('pip install python-dotenv matplotlib seaborn scikit-learn')
 
 
-# In[101]:
+# In[3]:
 
 
 # Import libraries
@@ -101,20 +101,20 @@ import seaborn as sns
 
 # ### Import METR Data 
 
-# In[102]:
+# In[4]:
 
 
 metr_df = pd.read_csv("data/raw/osdp.csv")
 metr_df.shape
 
 
-# In[103]:
+# In[5]:
 
 
 metr_df.head()
 
 
-# In[104]:
+# In[6]:
 
 
 metr_df.info()
@@ -124,20 +124,20 @@ metr_df.info()
 # 
 # Because the original dataset is over 100MB, I couldn't push it to GitHub without setting up GitHub LFS, please download the data source from [Stack Overflow Developer Survey 2025](tps://github.com/StackExchange/Survey/blob/main/packages/archive/2025/results.csv) and rename it to `stackoverflowdata.csv` and move it to `data/raw`
 
-# In[105]:
+# In[7]:
 
 
 stackoverflow_df = pd.read_csv("data/raw/stackoverflowdata.csv")
 stackoverflow_df.shape
 
 
-# In[106]:
+# In[8]:
 
 
 stackoverflow_df.head()
 
 
-# In[107]:
+# In[9]:
 
 
 stackoverflow_df.info()
@@ -155,7 +155,7 @@ stackoverflow_df.info()
 # The Coding Index describes performance on coding benchmarks. It does not measure the time a developer spends coding.
 # 
 
-# In[108]:
+# In[10]:
 
 
 # Import model benchmark data from Artificial Analysis.
@@ -201,7 +201,7 @@ else:
 model_scores_df.head()
 
 
-# In[109]:
+# In[11]:
 
 
 model_scores_df.info()
@@ -216,7 +216,7 @@ model_scores_df.info()
 # 
 # At first, I want to see a overview of METR dataset by using describe() 
 
-# In[110]:
+# In[12]:
 
 
 metr_df.describe()
@@ -224,7 +224,7 @@ metr_df.describe()
 
 # I see some abnormal values on time related columns. For example, `initialImplementationTime` can be right-skewed because its mean value is 159.29, but median is 87, and max is 1685. Mean is much higher than median, there may be some long time tasks making mean value higher. But I'll first check missing values and duplicated values and then will check the describe statistical again.
 
-# In[111]:
+# In[13]:
 
 
 metr_df.isnull().sum()
@@ -235,13 +235,13 @@ metr_df.isnull().sum()
 # Next, I will check which task statuses have these missing values. This will help me decide which tasks to use for each comparison.
 # 
 
-# In[112]:
+# In[14]:
 
 
 metr_df["status"].value_counts()
 
 
-# In[113]:
+# In[15]:
 
 
 missing_fields = metr_df.columns[metr_df.isnull().any()]
@@ -257,7 +257,7 @@ metr_missing_by_status
 # Next, I will check for duplicate task IDs.
 # 
 
-# In[114]:
+# In[16]:
 
 
 metr_df["id"].duplicated().sum()
@@ -267,7 +267,7 @@ metr_df["id"].duplicated().sum()
 # 
 # I will keep 3 statuses (complete, incomplete, and ditched tasks) for the task completion analysis and exclude 5 records labeled cheating or corrupted. For time and effort comparisons, I will use completed tasks, any analysis established for this dataframe will not represent the rest of the dataset. I will keep the original DataFrame and will not fill missing values with 0.
 
-# In[115]:
+# In[17]:
 
 
 # Keep the three status for the status comparison
@@ -277,15 +277,22 @@ metr_status_df = metr_df[metr_df['status'].isin(['complete','ditched','incomplet
 metr_complete_df = metr_status_df[metr_status_df['status'] == 'complete'].copy()
 
 
+# In[18]:
+
+
+# Check for distinct developers
+metr_complete_df["developerId"].nunique() 
+
+
 # ### Check for data correlation in METR dataset
 
-# In[116]:
+# In[19]:
 
 
 sns.heatmap(metr_complete_df.corr(numeric_only=True), annot=True, fmt=".2f", cmap="coolwarm")
 
 
-# In[117]:
+# In[20]:
 
 
 metr_complete_df.describe()
@@ -293,7 +300,7 @@ metr_complete_df.describe()
 
 # These values are still a little abnormal, so I will sketch a histogram to check the distribution of `initialImplementationTime`
 
-# In[118]:
+# In[21]:
 
 
 fig = plt.figure(figsize=(10, 6))
@@ -315,7 +322,7 @@ plt.show()
 # I will keep `ResponseId` and `AIModelsHaveWorkedWith` in `stackoverflow_models_df` for the model usage question. I will count the available model answers later in the EDA.
 # 
 
-# In[119]:
+# In[22]:
 
 
 stackoverflow_models_df = stackoverflow_df[
@@ -331,7 +338,7 @@ model_counts = (
 model_counts
 
 
-# In[120]:
+# In[23]:
 
 
 stackoverflow_models_df.duplicated().sum()
@@ -342,7 +349,7 @@ stackoverflow_models_df.duplicated().sum()
 # I will keep the 10 columns selected for the project. The usage, trust, and frustration questions will focus on `AISelect`, `AIAcc`, and `AIFrustration`.
 # 
 
-# In[121]:
+# In[24]:
 
 
 # Keep the columns used in the analysis.
@@ -366,7 +373,7 @@ stackoverflow_df.head()
 # Next, I will check which of the selected columns have missing values.
 # 
 
-# In[122]:
+# In[25]:
 
 
 stackoverflow_df.isna().sum()
@@ -376,7 +383,7 @@ stackoverflow_df.isna().sum()
 # 
 # 
 
-# In[123]:
+# In[26]:
 
 
 # Keep available responses for AI usage analysis.
@@ -393,7 +400,7 @@ stackoverflow_frustration_df = stackoverflow_df[
 ].dropna().copy()
 
 
-# In[124]:
+# In[27]:
 
 
 stackoverflow_usage_df.value_counts()
@@ -404,7 +411,7 @@ stackoverflow_usage_df.value_counts()
 # For Artificial Analysis data, I will keep the model `name`, `creator`, `release_date`, `coding_index`, and `retrieval_date`. I will rename `evaluations.artificial_analysis_coding_index` to `coding_index` and models without a score will be left out of the benchmark comparison.
 # 
 
-# In[125]:
+# In[28]:
 
 
 col_used = ["name",
@@ -420,19 +427,19 @@ model_scores_df.head()
 
 # Next, I will rename column to `coding_index` and remove missing values from `coding_index`.
 
-# In[126]:
+# In[29]:
 
 
 model_scores_df= model_scores_df.rename(columns={"evaluations.artificial_analysis_coding_index": "coding_index"})
 
 
-# In[127]:
+# In[30]:
 
 
 model_scores_df.isna().sum()
 
 
-# In[128]:
+# In[31]:
 
 
 model_scores_df = model_scores_df.dropna().copy()
@@ -440,7 +447,7 @@ model_scores_df = model_scores_df.dropna().copy()
 
 # I will check duplicated values
 
-# In[129]:
+# In[32]:
 
 
 model_scores_df.duplicated().sum()
@@ -448,14 +455,14 @@ model_scores_df.duplicated().sum()
 
 # Since this benchmark comparison is based on the 2025 survey data, I will only include AI models with a release_date on or before December 31, 2025.
 
-# In[130]:
+# In[33]:
 
 
 model_scores_df = model_scores_df[model_scores_df['release_date']<="2025-12-31"].copy()
 model_scores_df.info()
 
 
-# In[131]:
+# In[34]:
 
 
 model_scores_df.head(10)
@@ -463,7 +470,7 @@ model_scores_df.head(10)
 
 # To keep the comparison focused, I keep the five most reported model families. For each family, I will then keep up to five benchmark versions with the highest Coding Index scores.
 
-# In[132]:
+# In[35]:
 
 
 # Map model name to their family
@@ -503,7 +510,7 @@ top5_families
 # 
 # I removed OpenAI's image generation models because they are not used for coding. Next, I will use these five families to look up the Coding Index scores of their model versions from Artificial Analysis.
 
-# In[133]:
+# In[36]:
 
 
 benchmark_family_df = model_scores_df.copy()
@@ -533,7 +540,7 @@ benchmark_family_df = benchmark_family_df.dropna(subset=["model_family"]).copy()
 benchmark_family_df[["name", "model_family", "coding_index", "release_date"]].sample(5)
 
 
-# In[134]:
+# In[37]:
 
 
 # Keep 2 highest score model per model family
@@ -552,7 +559,7 @@ top_benchmark_df[["name", "model_family", "coding_index"]]
 # ### METR: Productivity With and Without AI
 # In this section, I will compare AI-allowed and AI-disallowed tasks. I use `metr_complete_df` for implementation time, post-review time, and perceived effort, and `metr_status_df` for the completion rate. Because the time columns are right-skewed on the above visulization, I will report the median implementation time instead of the mean.
 
-# In[135]:
+# In[38]:
 
 
 # Compare time and effort on completed tasks
@@ -572,7 +579,7 @@ metr_summary["completion_rate"] = (
 metr_summary.round(2)
 
 
-# In[136]:
+# In[39]:
 
 
 fig = px.box(metr_complete_df, x="treatmentAssignment", y="initialImplementationTime",
@@ -598,7 +605,7 @@ fig.show()
 # ### Stack Overflow: AI Usage Frequency
 # In this section, I will examine how frequently developers use AI tools by counting the responses in each `AISelect` category in `stackoverflow_usage_df`.
 
-# In[137]:
+# In[40]:
 
 
 AI_counts = stackoverflow_usage_df["AISelect"].value_counts()
@@ -617,7 +624,7 @@ fig.show()
 # ### Stack Overflow
 # At first, I'd like to see the selection and the amount of answers in `AIAcc` column.
 
-# In[138]:
+# In[41]:
 
 
 stackoverflow_trust_df["AIAcc"].value_counts()
@@ -625,7 +632,7 @@ stackoverflow_trust_df["AIAcc"].value_counts()
 
 # Then, I'd like to see the amount of people who use AI and their trust on those.
 
-# In[139]:
+# In[42]:
 
 
 #trust_counts = pd.crosstab(stackoverflow_trust_df["AISelect"], 
@@ -653,7 +660,7 @@ trust_percent = trust_percent.round(1)
 trust_percent
 
 
-# In[140]:
+# In[43]:
 
 
 fig = px.bar(
@@ -674,7 +681,7 @@ fig.show()
 # ### Stack Overflow: AI Frustrations
 # In this section, I will look at the frustrations reported by AI users. I keep respondents whose `AISelect` answer starts with "Yes", then split `AIFrustration` because each respondent can choose more than one answer.
 
-# In[146]:
+# In[44]:
 
 
 # Keep AI users only
@@ -682,6 +689,8 @@ AI_users_df = stackoverflow_frustration_df[
     stackoverflow_frustration_df["AISelect"].str.startswith("Yes")
 ]
 
+# Count the number of AI users who selected each frustration 
+# (e.g: AI solutions that are almost right, but not quite;Debugging AI-generated code is more time-consuming)
 frustration_counts = (
     AI_users_df["AIFrustration"].str.split(";").explode().value_counts()
 )
@@ -703,7 +712,7 @@ fig.show()
 # ### Artificial Analysis
 # In this section, I will examine the coding index of the most 5 models used reported from Stack Overflow data, and comparing their score using Artificial Analysis data.
 
-# In[142]:
+# In[45]:
 
 
 fig = px.bar(top_benchmark_df, x="model_family", y="coding_index", color="name",
@@ -732,7 +741,7 @@ fig.update_layout(
 fig.show()
 
 
-# In[143]:
+# In[46]:
 
 
 top5_families
@@ -747,125 +756,66 @@ top5_families
 
 # ## Machine Learning Plan
 # 
-# Since I have 3 different datasets and I do not join them, I need to choose one dataset for the machine learning part. The Stack Overflow survey contains mostly multiple-choice text answers, and the Artificial Analysis data contains benchmark scores of AI models, not information about developers or tasks. The METR dataset is the only one that has one row per task with a measured outcome (time), so I will use METR for this part.
+# Since I have 3 different datasets and I do not join them, I need to choose one dataset for the machine learning part. The Stack Overflow survey contains mostly multiple-choice text answers, and the Artificial Analysis data contains benchmark scores of AI models, not information about developers or tasks. I think METR dataset is the only one that I can use for this part.
 # 
-# ### What type of machine learning model are you planning to use?
+# For this part, I want to answer this question: if we know AI usage, prior experience, and the developer's estimated task time, can we predict how long a developer takes to complete a task? Since I'm predicting a number (minutes), this is a regression problem. I plan to use Linear Regression because it is simple and easy to interpret. Each feature gets a coefficient, which makes it easy to see the relationship between each feature (`treatmentAssignment`, `priorExperience`, and `estimatedTimeWithoutAI`) and `initialImplementationTime`. 
 # 
-# I want to answer this question: if we know AI usage, prior experience, and the developer's estimated task time, can we predict how long a developer takes to complete a task?
+# My main challenge is the 828 completed tasks come from only 53 developers, and some developers completed many tasks. Each developer has their own patterns. For example, some developers usually finish much faster than they estimate, while others usually take longer. If the same developer appears in both the training and testing data, the model can learn these patterns from the training data, and the test score will look better than it would for a new developer.
 # 
-# The target `initialImplementationTime` is a number (minutes), so this is a supervised **regression** problem. I plan to use **Linear Regression** because it is simple and its coefficients show how each feature (for example AI-allowed vs AI-disallowed) is related to completion time. I will also compare it with a baseline model that always predicts the median time, so I can check if the model actually learns something.
+# To make sure the model is tested fairly, I will split the data by developer with `GroupShuffleSplit`, using about 80% of the developers for training and 20% for testing. This way, the model is always tested on developers it has never seen.
 # 
-# - **Data:** `metr_complete_df` (828 completed tasks)
-# - **Target:** `initialImplementationTime`
-# - **Features** (all known before the task starts):
-#   - `treatmentAssignment` (AI-allowed / AI-disallowed)
-#   - `priorExperience` (1-5)
-#   - `estimatedTime`: the developer's estimate for the assigned condition (`estimatedTimeWithAI` for AI-allowed tasks, `estimatedTimeWithoutAI` for AI-disallowed tasks)
-# 
-# ### What are the challenges you have identified/are you anticipating in building your machine learning model?
-# 
-# 1. **Data leakage:** `estimatedTimeOtherTreatment`, `postReviewImplementationTime`, and `perceivedEffort` are recorded after the task is finished. `estimatedTimeOtherTreatment` has a 0.78 correlation with the target, so using it would make the model look much better than it really is.
-# 2. **Skewed target and outliers:** from the EDA, `initialImplementationTime` is right-skewed (median 87 minutes, max 1685 minutes). A few very long tasks can pull the regression line and make the errors large.
-# 3. **Same developers appear many times:** the 828 tasks come from only 53 developers (from 1 to 75 tasks each). If I split the data randomly, the same developer can be in both the training and test set, so the test score would be too optimistic.
-# 4. **Correlated features:** `estimatedTimeWithAI` and `estimatedTimeWithoutAI` have a 0.86 correlation, so using both would make the coefficients hard to interpret.
-# 5. **Small and limited data:** only completed tasks have a time value, so the model only represents completed tasks, not incomplete or ditched tasks. Also, `priorExperience` has a weak correlation with the target (-0.09), so most of the prediction may come from the developer's estimate.
-# 
-# ### How are you planning to address these challenges?
-# 
-# 1. I will only use features that are available before the task starts and drop the three post-task columns.
-# 2. I will train the model on the log of the time (`np.log1p`) and convert the predictions back to minutes (`np.expm1`). I will keep the outliers because long tasks are real tasks, and I will report MAE (less sensitive to outliers) together with RMSE and R².
-# 3. I will split the data by developer using `GroupShuffleSplit` (80% train / 20% test) on `developerId`, and use `GroupKFold` cross-validation on the training set, so developers in the test set are never seen during training.
-# 4. I will use only one estimate per task, the one that matches the assigned condition, instead of both estimate columns.
-# 5. I will clearly state that the results only apply to completed tasks, use cross-validation to get a more stable score from the small dataset, and compare the model with the median baseline.
 
 # ## Machine Learning Model
 # 
 # In this section, I will build a Linear Regression model on the METR data to predict `initialImplementationTime` from AI usage, prior experience, and the developer's estimated time.
 
+# ### Import
+
 # In[ ]:
 
 
-from sklearn.compose import ColumnTransformer
-from sklearn.dummy import DummyRegressor
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
-from sklearn.model_selection import GroupKFold, GroupShuffleSplit, cross_validate
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 
-# ### Step 1: Prepare Features and Target
+# ### Prepare Data
+# In this step, I will need to prepare features (X), and target (y). The features include: `priorExperience` (developer's prior experience with this type of task), `treatmentAssignment` (either "AI-allowed" or "AI-disallowed" - issues are randomly assigned), and `estimatedTimeWithoutAI`(how long (in minutes) the developer expects the issue to take without AI access (input before randomization)).
+# 
+# I use `estimatedTimeWithoutAI` because it shows how much time a task needs without AI, so it works as a measure of the task's workload. I do not use `estimatedTimeWithAI` because it already includes how much faster the developer expects AI to make them, and using both would also add two highly correlated columns (0.86 in the correlation heatmap above), which makes their coefficients hard to interpret. By keeping only `estimatedTimeWithoutAI`, the AI-allowed condition can answer my question: for tasks with the same workload, does using AI make developers complete them faster or slower?
 
 # In[ ]:
 
 
 ml_df = metr_complete_df.copy()
 
-# TODO: create `estimatedTime` = estimatedTimeWithAI for AI-allowed tasks,
-#       estimatedTimeWithoutAI for AI-disallowed tasks (hint: np.where)
+# Encode treatment as a binary feature (1 = AI allowed)
+ml_df["aiAllowed"] = (ml_df["treatmentAssignment"]=="AI-allowed").astype(int)
 
-# TODO: X = ml_df[["treatmentAssignment", "priorExperience", "estimatedTime"]]
-# TODO: y = np.log1p(ml_df["initialImplementationTime"])
-# TODO: groups = ml_df["developerId"]
+features = ["aiAllowed", "priorExperience", "estimatedTimeWithoutAI"]
+target = "initialImplementationTime"
 
-
-# ### Step 2: Split Train and Test Sets by Developer
-
-# In[ ]:
+X = ml_df[features]
+y = ml_df[target]
 
 
-# TODO: GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
-# TODO: get train_idx, test_idx from splitter.split(X, y, groups)
-# TODO: X_train, X_test, y_train, y_test, groups_train
-# TODO: check that no developerId appears in both train and test
-
-
-# ### Step 3: Baseline Model
+# ### Split Train and Test Sets
+# In this step, I split the data into a training set and a test set by developer, using `GroupShuffleSplit` with `developerId` as the group. About 80% of the developers go to the training set and 20% go to the test set. This way, every task from the same developer stays in only one set, so the model is tested on developers it has never seen. I also set `random_state=42`
 
 # In[ ]:
 
 
-# TODO: DummyRegressor(strategy="median"), fit on X_train, y_train
-# TODO: predict on X_test, convert back to minutes with np.expm1
-# TODO: compute MAE, RMSE, R² in minutes
 
 
-# ### Step 4: Linear Regression Model
 
-# In[ ]:
+# ### Linear Regression Model
 
-
-# TODO: ColumnTransformer: OneHotEncoder(drop="first") for treatmentAssignment,
-#       passthrough for priorExperience and estimatedTime
-# TODO: Pipeline([("prep", preprocessor), ("model", LinearRegression())])
-# TODO: cross_validate on the training set with GroupKFold(n_splits=5), groups=groups_train
-# TODO: print mean and std of the CV scores
-
-
-# ### Step 5: Evaluate on the Test Set
-
-# In[ ]:
-
-
-# TODO: fit the pipeline on the full training set
-# TODO: predict on X_test, convert back to minutes with np.expm1
-# TODO: compute MAE, RMSE, R² and compare with the baseline in one table
-# TODO: plot predicted vs actual time (log scale)
-
-
-# ### Step 6: Interpret the Coefficients
-
-# In[ ]:
-
-
-# TODO: get feature names from the preprocessor and coefficients from the model
-# TODO: show them in a DataFrame
-# TODO: because y is log(time), exp(coef) - 1 is the % change in time per unit of the feature
-
+# ### Evaluate on the Test Set
 
 # ### Machine Learning Results
 # 
-# TODO: summarize the model performance compared with the baseline, what the AI-allowed coefficient says about completion time, and the limitations (completed tasks only, small number of developers).
 
 # ## Resources and References
 # *What resources and references have you used for this project?*
@@ -885,7 +835,7 @@ ml_df = metr_complete_df.copy()
 # 
 # I used AI tools to refine project scope and data analysis ideas, improve written explanations. I also used AI to help compare my project scope with the available datasets to ensure the data I selected could actually help answer the questions. I reviewed the final analysis, interpretations, and conclusions myself.
 
-# In[144]:
+# In[ ]:
 
 
 # ⚠️ Make sure you run this cell at the end of your notebook before every submission!
