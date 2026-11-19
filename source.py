@@ -74,13 +74,13 @@
 # # Setup and Import Libraries
 # 
 
-# In[2]:
+# In[75]:
 
 
 get_ipython().system('pip install python-dotenv matplotlib seaborn scikit-learn')
 
 
-# In[ ]:
+# In[76]:
 
 
 # Import libraries
@@ -101,20 +101,20 @@ import seaborn as sns
 
 # ### Import METR Data 
 
-# In[4]:
+# In[77]:
 
 
 metr_df = pd.read_csv("data/raw/osdp.csv")
 metr_df.shape
 
 
-# In[5]:
+# In[78]:
 
 
 metr_df.head()
 
 
-# In[6]:
+# In[79]:
 
 
 metr_df.info()
@@ -124,20 +124,20 @@ metr_df.info()
 # 
 # Because the original dataset is over 100MB, I couldn't push it to GitHub without setting up GitHub LFS, please download the data source from [Stack Overflow Developer Survey 2025](tps://github.com/StackExchange/Survey/blob/main/packages/archive/2025/results.csv) and rename it to `stackoverflowdata.csv` and move it to `data/raw`
 
-# In[7]:
+# In[80]:
 
 
 stackoverflow_df = pd.read_csv("data/raw/stackoverflowdata.csv")
 stackoverflow_df.shape
 
 
-# In[8]:
+# In[81]:
 
 
 stackoverflow_df.head()
 
 
-# In[9]:
+# In[82]:
 
 
 stackoverflow_df.info()
@@ -155,7 +155,7 @@ stackoverflow_df.info()
 # The Coding Index describes performance on coding benchmarks. It does not measure the time a developer spends coding.
 # 
 
-# In[10]:
+# In[83]:
 
 
 # Import model benchmark data from Artificial Analysis.
@@ -201,7 +201,7 @@ else:
 model_scores_df.head()
 
 
-# In[11]:
+# In[84]:
 
 
 model_scores_df.info()
@@ -216,7 +216,7 @@ model_scores_df.info()
 # 
 # At first, I want to see a overview of METR dataset by using describe() 
 
-# In[12]:
+# In[85]:
 
 
 metr_df.describe()
@@ -224,7 +224,7 @@ metr_df.describe()
 
 # I see some abnormal values on time related columns. For example, `initialImplementationTime` can be right-skewed because its mean value is 159.29, but median is 87, and max is 1685. Mean is much higher than median, there may be some long time tasks making mean value higher. But I'll first check missing values and duplicated values and then will check the describe statistical again.
 
-# In[13]:
+# In[86]:
 
 
 metr_df.isnull().sum()
@@ -235,13 +235,13 @@ metr_df.isnull().sum()
 # Next, I will check which task statuses have these missing values. This will help me decide which tasks to use for each comparison.
 # 
 
-# In[14]:
+# In[87]:
 
 
 metr_df["status"].value_counts()
 
 
-# In[15]:
+# In[88]:
 
 
 missing_fields = metr_df.columns[metr_df.isnull().any()]
@@ -257,7 +257,7 @@ metr_missing_by_status
 # Next, I will check for duplicate task IDs.
 # 
 
-# In[16]:
+# In[89]:
 
 
 metr_df["id"].duplicated().sum()
@@ -267,7 +267,7 @@ metr_df["id"].duplicated().sum()
 # 
 # I will keep 3 statuses (complete, incomplete, and ditched tasks) for the task completion analysis and exclude 5 records labeled cheating or corrupted. For time and effort comparisons, I will use completed tasks, any analysis established for this dataframe will not represent the rest of the dataset. I will keep the original DataFrame and will not fill missing values with 0.
 
-# In[17]:
+# In[90]:
 
 
 # Keep the three status for the status comparison
@@ -277,7 +277,7 @@ metr_status_df = metr_df[metr_df['status'].isin(['complete','ditched','incomplet
 metr_complete_df = metr_status_df[metr_status_df['status'] == 'complete'].copy()
 
 
-# In[18]:
+# In[91]:
 
 
 # Check for distinct developers
@@ -286,13 +286,13 @@ metr_complete_df["developerId"].nunique()
 
 # ### Check for data correlation in METR dataset
 
-# In[19]:
+# In[92]:
 
 
 sns.heatmap(metr_complete_df.corr(numeric_only=True), annot=True, fmt=".2f", cmap="coolwarm")
 
 
-# In[20]:
+# In[93]:
 
 
 metr_complete_df.describe()
@@ -300,7 +300,7 @@ metr_complete_df.describe()
 
 # These values are still a little abnormal, so I will sketch a histogram to check the distribution of `initialImplementationTime`
 
-# In[21]:
+# In[94]:
 
 
 fig = plt.figure(figsize=(10, 6))
@@ -322,7 +322,7 @@ plt.show()
 # I will keep `ResponseId` and `AIModelsHaveWorkedWith` in `stackoverflow_models_df` for the model usage question. I will count the available model answers later in the EDA.
 # 
 
-# In[22]:
+# In[95]:
 
 
 stackoverflow_models_df = stackoverflow_df[
@@ -338,7 +338,7 @@ model_counts = (
 model_counts
 
 
-# In[23]:
+# In[96]:
 
 
 stackoverflow_models_df.duplicated().sum()
@@ -349,7 +349,7 @@ stackoverflow_models_df.duplicated().sum()
 # I will keep the 10 columns selected for the project. The usage, trust, and frustration questions will focus on `AISelect`, `AIAcc`, and `AIFrustration`.
 # 
 
-# In[24]:
+# In[97]:
 
 
 # Keep the columns used in the analysis.
@@ -373,7 +373,7 @@ stackoverflow_df.head()
 # Next, I will check which of the selected columns have missing values.
 # 
 
-# In[25]:
+# In[98]:
 
 
 stackoverflow_df.isna().sum()
@@ -383,7 +383,7 @@ stackoverflow_df.isna().sum()
 # 
 # 
 
-# In[26]:
+# In[99]:
 
 
 # Keep available responses for AI usage analysis.
@@ -400,7 +400,7 @@ stackoverflow_frustration_df = stackoverflow_df[
 ].dropna().copy()
 
 
-# In[27]:
+# In[100]:
 
 
 stackoverflow_usage_df.value_counts()
@@ -411,7 +411,7 @@ stackoverflow_usage_df.value_counts()
 # For Artificial Analysis data, I will keep the model `name`, `creator`, `release_date`, `coding_index`, and `retrieval_date`. I will rename `evaluations.artificial_analysis_coding_index` to `coding_index` and models without a score will be left out of the benchmark comparison.
 # 
 
-# In[28]:
+# In[101]:
 
 
 col_used = ["name",
@@ -427,19 +427,19 @@ model_scores_df.head()
 
 # Next, I will rename column to `coding_index` and remove missing values from `coding_index`.
 
-# In[29]:
+# In[102]:
 
 
 model_scores_df= model_scores_df.rename(columns={"evaluations.artificial_analysis_coding_index": "coding_index"})
 
 
-# In[30]:
+# In[103]:
 
 
 model_scores_df.isna().sum()
 
 
-# In[31]:
+# In[104]:
 
 
 model_scores_df = model_scores_df.dropna().copy()
@@ -447,7 +447,7 @@ model_scores_df = model_scores_df.dropna().copy()
 
 # I will check duplicated values
 
-# In[32]:
+# In[105]:
 
 
 model_scores_df.duplicated().sum()
@@ -455,14 +455,14 @@ model_scores_df.duplicated().sum()
 
 # Since this benchmark comparison is based on the 2025 survey data, I will only include AI models with a release_date on or before December 31, 2025.
 
-# In[33]:
+# In[106]:
 
 
 model_scores_df = model_scores_df[model_scores_df['release_date']<="2025-12-31"].copy()
 model_scores_df.info()
 
 
-# In[34]:
+# In[107]:
 
 
 model_scores_df.head(10)
@@ -470,7 +470,7 @@ model_scores_df.head(10)
 
 # To keep the comparison focused, I keep the five most reported model families. For each family, I will then keep up to five benchmark versions with the highest Coding Index scores.
 
-# In[35]:
+# In[108]:
 
 
 # Map model name to their family
@@ -510,7 +510,7 @@ top5_families
 # 
 # I removed OpenAI's image generation models because they are not used for coding. Next, I will use these five families to look up the Coding Index scores of their model versions from Artificial Analysis.
 
-# In[36]:
+# In[109]:
 
 
 benchmark_family_df = model_scores_df.copy()
@@ -540,7 +540,7 @@ benchmark_family_df = benchmark_family_df.dropna(subset=["model_family"]).copy()
 benchmark_family_df[["name", "model_family", "coding_index", "release_date"]].sample(5)
 
 
-# In[37]:
+# In[110]:
 
 
 # Keep 2 highest score model per model family
@@ -559,7 +559,7 @@ top_benchmark_df[["name", "model_family", "coding_index"]]
 # ### METR: Productivity With and Without AI
 # In this section, I will compare AI-allowed and AI-disallowed tasks. I use `metr_complete_df` for implementation time, post-review time, and perceived effort, and `metr_status_df` for the completion rate. Because the time columns are right-skewed on the above visulization, I will report the median implementation time instead of the mean.
 
-# In[38]:
+# In[111]:
 
 
 # Compare time and effort on completed tasks
@@ -579,7 +579,7 @@ metr_summary["completion_rate"] = (
 metr_summary.round(2)
 
 
-# In[39]:
+# In[112]:
 
 
 fig = px.box(metr_complete_df, x="treatmentAssignment", y="initialImplementationTime",
@@ -605,7 +605,7 @@ fig.show()
 # ### Stack Overflow: AI Usage Frequency
 # In this section, I will examine how frequently developers use AI tools by counting the responses in each `AISelect` category in `stackoverflow_usage_df`.
 
-# In[40]:
+# In[113]:
 
 
 AI_counts = stackoverflow_usage_df["AISelect"].value_counts()
@@ -624,7 +624,7 @@ fig.show()
 # ### Stack Overflow
 # At first, I'd like to see the selection and the amount of answers in `AIAcc` column.
 
-# In[41]:
+# In[114]:
 
 
 stackoverflow_trust_df["AIAcc"].value_counts()
@@ -632,7 +632,7 @@ stackoverflow_trust_df["AIAcc"].value_counts()
 
 # Then, I'd like to see the amount of people who use AI and their trust on those.
 
-# In[42]:
+# In[115]:
 
 
 #trust_counts = pd.crosstab(stackoverflow_trust_df["AISelect"], 
@@ -660,7 +660,7 @@ trust_percent = trust_percent.round(1)
 trust_percent
 
 
-# In[43]:
+# In[116]:
 
 
 fig = px.bar(
@@ -681,7 +681,7 @@ fig.show()
 # ### Stack Overflow: AI Frustrations
 # In this section, I will look at the frustrations reported by AI users. I keep respondents whose `AISelect` answer starts with "Yes", then split `AIFrustration` because each respondent can choose more than one answer.
 
-# In[44]:
+# In[117]:
 
 
 # Keep AI users only
@@ -712,7 +712,7 @@ fig.show()
 # ### Artificial Analysis
 # In this section, I will examine the coding index of the most 5 models used reported from Stack Overflow data, and comparing their score using Artificial Analysis data.
 
-# In[45]:
+# In[118]:
 
 
 fig = px.bar(top_benchmark_df, x="model_family", y="coding_index", color="name",
@@ -741,7 +741,7 @@ fig.update_layout(
 fig.show()
 
 
-# In[46]:
+# In[119]:
 
 
 top5_families
@@ -771,7 +771,7 @@ top5_families
 
 # ### Import
 
-# In[70]:
+# In[120]:
 
 
 from sklearn.linear_model import LinearRegression
@@ -788,7 +788,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 # 
 # I use `estimatedTimeWithoutAI` because it shows how much time a task needs without AI, so it works as a measure of the task's workload. I do not use `estimatedTimeWithAI` because it already includes how much faster the developer expects AI to make them, and using both would also add two highly correlated columns (0.86 in the correlation heatmap above), which makes their coefficients hard to interpret. By keeping only `estimatedTimeWithoutAI`, the AI-allowed condition can answer my question: for tasks with the same workload, does using AI make developers complete them faster or slower?
 
-# In[71]:
+# In[121]:
 
 
 ml_df = metr_complete_df.copy()
@@ -804,7 +804,7 @@ y = ml_df["initialImplementationTime"]
 # ### Split Train and Test Sets
 # In this step, I split the data into a training set and a test set by developer, using `GroupShuffleSplit` with `developerId` as the group. About 80% of the developers go to the training set and 20% go to the test set. This way, every task from the same developer stays in only one set, so the model is tested on developers it has never seen. I also set `random_state=42`
 
-# In[52]:
+# In[122]:
 
 
 # ml_df['developerId'].value_counts()
@@ -838,33 +838,37 @@ numeric_pipeline = Pipeline([
     ("scale", StandardScaler()),
 ])
 
+cat_pipeline = Pipeline([
+    ("encoder", OneHotEncoder(drop="if_binary"))
+])
+
 preprocess = ColumnTransformer([
     ("num", numeric_pipeline, numeric_features),
-    ("cat", OneHotEncoder(drop="if_binary"), categorical_features),
+    ("cat", cat_pipeline, categorical_features),
 ], verbose_feature_names_out=False)
 
 
 # ### Linear Regression Model
 # I combine the preprocessing step and Linear Regression into one pipeline, then train it on the training set.
 
-# In[ ]:
+# In[132]:
 
 
-model = Pipeline([
+lin_reg = Pipeline([
     ("preprocess", preprocess),
     ("model", LinearRegression()),
 ])
-model.fit(X_train, y_train)
+lin_reg.fit(X_train, y_train)
 
 
 # Next, I look at the coefficients. For numeric features, a coefficient shows how many minutes the completion time changes when the feature increases by 1 standard deviation (because of scaling). For `treatmentAssignment`, it shows the difference in minutes between the two groups.
 
-# In[ ]:
+# In[133]:
 
 
 coef_df = pd.DataFrame({
-    "feature": model.named_steps["preprocess"].get_feature_names_out(),
-    "coefficient": model.named_steps["model"].coef_.round(3),
+    "feature": lin_reg.named_steps["preprocess"].get_feature_names_out(),
+    "coefficient": lin_reg.named_steps["model"].coef_.round(3),
 })
 coef_df
 
@@ -881,19 +885,19 @@ coef_df
 
 # Now, I evaluate MAE on the test set
 
-# In[61]:
+# In[134]:
 
 
-y_pred = model.predict(X_test)
+y_pred = lin_reg.predict(X_test)
 
 compare_df = pd.DataFrame({"actual": y_test.values, "predicted": y_pred})
 print(compare_df)
 
 
-# In[ ]:
+# In[135]:
 
 
-train_mae = mean_absolute_error(y_train, model.predict(X_train))
+train_mae = mean_absolute_error(y_train, lin_reg.predict(X_train))
 test_mae = mean_absolute_error(y_test, y_pred)
 
 print(f"Train Mean Absolute Error: {train_mae}")
@@ -902,14 +906,14 @@ print(f"Test Mean Absolute Error: {test_mae}")
 
 # MAE score on test set is 70 mins, which is lower than train set (93mins). Now, I want to examine the average and median completion time in each set to see if this means the model performs better on new developers
 
-# In[ ]:
+# In[136]:
 
 
 print(y_train.mean(), y_train.median())
 print(y_test.mean(), y_test.median())
 
 
-# Tasks in the test set are much shorter (median 45 vs 100 minutes). So the lower MAE comes from shorter tasks, not a better model
+# Tasks in the test set are much shorter (median 45 vs 100 minutes). So the lower MAE comes from shorter tasks, not a better model. MAE is ~70 and still large compared to typical `initialImplementationTime`, so the model doesn't predict well.
 
 # ### Machine Learning Results
 # 
@@ -932,7 +936,7 @@ print(y_test.mean(), y_test.median())
 # 
 # I used AI tools to refine project scope and data analysis ideas, improve written explanations. I also used AI to help compare my project scope with the available datasets to ensure the data I selected could actually help answer the questions. I reviewed the final analysis, interpretations, and conclusions myself.
 
-# In[69]:
+# In[129]:
 
 
 # ⚠️ Make sure you run this cell at the end of your notebook before every submission!
