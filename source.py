@@ -771,12 +771,16 @@ top5_families
 
 # ### Import
 
-# In[ ]:
+# In[70]:
 
 
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import GroupShuffleSplit
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
 
 # ### Prepare Data
@@ -784,19 +788,17 @@ from sklearn.model_selection import GroupShuffleSplit
 # 
 # I use `estimatedTimeWithoutAI` because it shows how much time a task needs without AI, so it works as a measure of the task's workload. I do not use `estimatedTimeWithAI` because it already includes how much faster the developer expects AI to make them, and using both would also add two highly correlated columns (0.86 in the correlation heatmap above), which makes their coefficients hard to interpret. By keeping only `estimatedTimeWithoutAI`, the AI-allowed condition can answer my question: for tasks with the same workload, does using AI make developers complete them faster or slower?
 
-# In[48]:
+# In[71]:
 
 
 ml_df = metr_complete_df.copy()
 
-# Encode treatment as a binary feature (1 = AI allowed)
-ml_df["aiAllowed"] = (ml_df["treatmentAssignment"]=="AI-allowed").astype(int)
+# Define features and target variable
+numeric_features = ["priorExperience", "estimatedTimeWithoutAI"]
+categorical_features = ["treatmentAssignment"]
 
-features = ["aiAllowed", "priorExperience", "estimatedTimeWithoutAI"]
-target = "initialImplementationTime"
-
-X = ml_df[features]
-y = ml_df[target]
+X = ml_df[categorical_features + numeric_features]
+y = ml_df["initialImplementationTime"]
 
 
 # ### Split Train and Test Sets
@@ -822,24 +824,47 @@ print("Test:", len(X_test), "tasks from", len(test_devs), "developers")
 print("Developers in both sets:", len(train_devs & test_devs))
 
 
+# ### Process Data
+# Here, I will process and clean data:
+# 
+# - Numeric columns: fill missing values with the median, then scale with `StandardScaler`. There are no missing values in these columns, so the imputer is only a safeguard.
+# - `treatmentAssignment`: one-hot encode into a single column (it only has 2 values).
+
+# In[ ]:
+
+
+numeric_pipeline = Pipeline([
+    ("impute", SimpleImputer(strategy="median")),
+    ("scale", StandardScaler()),
+])
+
+preprocess = ColumnTransformer([
+    ("num", numeric_pipeline, numeric_features),
+    ("cat", OneHotEncoder(drop="if_binary"), categorical_features),
+], verbose_feature_names_out=False)
+
+
 # ### Linear Regression Model
-# This step, I'll train a Linear Regression model on the train set
+# I combine the preprocessing step and Linear Regression into one pipeline, then train it on the training set.
 
-# In[58]:
+# In[ ]:
 
 
-model = LinearRegression()
+model = Pipeline([
+    ("preprocess", preprocess),
+    ("model", LinearRegression()),
+])
 model.fit(X_train, y_train)
 
 
-# Next, I print out intercept and look at the coefficient because coefficient shows how many minutes the completion time changes when feature increases by 1, while the other stay the same. 
+# Next, I look at the coefficients. For numeric features, a coefficient shows how many minutes the completion time changes when the feature increases by 1 standard deviation (because of scaling). For `treatmentAssignment`, it shows the difference in minutes between the two groups.
 
-# In[60]:
+# In[ ]:
 
 
 coef_df = pd.DataFrame({
-    "feature": features,
-    "coefficient": model.coef_.round(3),
+    "feature": model.named_steps["preprocess"].get_feature_names_out(),
+    "coefficient": model.named_steps["model"].coef_.round(3),
 })
 coef_df
 
@@ -848,11 +873,9 @@ coef_df
 # 
 # From the training set, the model learned:
 # 
-# - `aiAllowed` (-18.9): with the same workload and experience, AI-allowed tasks took about 19 minutes less in this model.
-# - `priorExperience` (0.18): almost 0, so experience barely affects the time.
-# - `estimatedTimeWithoutAI` (0.71): tasks with a higher estimate time tend to take longer. For every 1 extra minute in the estimate, the actual time iabout 0.71 minutes higher
-# 
-# 
+# - `treatmentAssignment_AI-disallowed` (18.9): with the same workload and experience, AI-disallowed tasks took about 19 minutes longer, so AI-allowed tasks took about 19 minutes less.
+# - `priorExperience` (0.24): almost 0, so experience barely affects the time.
+# - `estimatedTimeWithoutAI` (159.1): tasks with a higher estimate tend to take longer. When the estimate increases by 1 standard deviation (about 225 minutes), the actual time is about 159 minutes higher.
 
 # ### Evaluate on the Test Set
 
@@ -909,7 +932,7 @@ print(y_test.mean(), y_test.median())
 # 
 # I used AI tools to refine project scope and data analysis ideas, improve written explanations. I also used AI to help compare my project scope with the available datasets to ensure the data I selected could actually help answer the questions. I reviewed the final analysis, interpretations, and conclusions myself.
 
-# In[50]:
+# In[69]:
 
 
 # ⚠️ Make sure you run this cell at the end of your notebook before every submission!
