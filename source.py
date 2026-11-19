@@ -80,7 +80,7 @@
 get_ipython().system('pip install python-dotenv matplotlib seaborn scikit-learn')
 
 
-# In[3]:
+# In[ ]:
 
 
 # Import libraries
@@ -775,10 +775,8 @@ top5_families
 
 
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, root_mean_squared_error
+from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import GroupShuffleSplit
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
 
 
 # ### Prepare Data
@@ -786,7 +784,7 @@ from sklearn.preprocessing import OneHotEncoder
 # 
 # I use `estimatedTimeWithoutAI` because it shows how much time a task needs without AI, so it works as a measure of the task's workload. I do not use `estimatedTimeWithAI` because it already includes how much faster the developer expects AI to make them, and using both would also add two highly correlated columns (0.86 in the correlation heatmap above), which makes their coefficients hard to interpret. By keeping only `estimatedTimeWithoutAI`, the AI-allowed condition can answer my question: for tasks with the same workload, does using AI make developers complete them faster or slower?
 
-# In[ ]:
+# In[48]:
 
 
 ml_df = metr_complete_df.copy()
@@ -804,15 +802,91 @@ y = ml_df[target]
 # ### Split Train and Test Sets
 # In this step, I split the data into a training set and a test set by developer, using `GroupShuffleSplit` with `developerId` as the group. About 80% of the developers go to the training set and 20% go to the test set. This way, every task from the same developer stays in only one set, so the model is tested on developers it has never seen. I also set `random_state=42`
 
-# In[ ]:
+# In[52]:
 
 
+# ml_df['developerId'].value_counts()
+groups = ml_df["developerId"]
 
+split = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+
+for train_idx, test_idx in split.split(X, y, groups):
+    X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+    y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+
+train_devs = set(groups.iloc[train_idx])
+test_devs = set(groups.iloc[test_idx])
+
+print("Train:", len(X_train), "tasks from", len(train_devs), "developers")
+print("Test:", len(X_test), "tasks from", len(test_devs), "developers")
+print("Developers in both sets:", len(train_devs & test_devs))
 
 
 # ### Linear Regression Model
+# This step, I'll train a Linear Regression model on the train set
+
+# In[58]:
+
+
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+
+# Next, I print out intercept and look at the coefficient because coefficient shows how many minutes the completion time changes when feature increases by 1, while the other stay the same. 
+
+# In[60]:
+
+
+coef_df = pd.DataFrame({
+    "feature": features,
+    "coefficient": model.coef_.round(3),
+})
+coef_df
+
+
+# This helps answer my question: for tasks with the same workload, does using AI make developers faster or slower?
+# 
+# From the training set, the model learned:
+# 
+# - `aiAllowed` (-18.9): with the same workload and experience, AI-allowed tasks took about 19 minutes less in this model.
+# - `priorExperience` (0.18): almost 0, so experience barely affects the time.
+# - `estimatedTimeWithoutAI` (0.71): tasks with a higher estimate time tend to take longer. For every 1 extra minute in the estimate, the actual time iabout 0.71 minutes higher
+# 
+# 
 
 # ### Evaluate on the Test Set
+
+# Now, I evaluate MAE on the test set
+
+# In[61]:
+
+
+y_pred = model.predict(X_test)
+
+compare_df = pd.DataFrame({"actual": y_test.values, "predicted": y_pred})
+print(compare_df)
+
+
+# In[ ]:
+
+
+train_mae = mean_absolute_error(y_train, model.predict(X_train))
+test_mae = mean_absolute_error(y_test, y_pred)
+
+print(f"Train Mean Absolute Error: {train_mae}")
+print(f"Test Mean Absolute Error: {test_mae}")
+
+
+# MAE score on test set is 70 mins, which is lower than train set (93mins). Now, I want to examine the average and median completion time in each set to see if this means the model performs better on new developers
+
+# In[ ]:
+
+
+print(y_train.mean(), y_train.median())
+print(y_test.mean(), y_test.median())
+
+
+# Tasks in the test set are much shorter (median 45 vs 100 minutes). So the lower MAE comes from shorter tasks, not a better model
 
 # ### Machine Learning Results
 # 
@@ -835,7 +909,7 @@ y = ml_df[target]
 # 
 # I used AI tools to refine project scope and data analysis ideas, improve written explanations. I also used AI to help compare my project scope with the available datasets to ensure the data I selected could actually help answer the questions. I reviewed the final analysis, interpretations, and conclusions myself.
 
-# In[ ]:
+# In[50]:
 
 
 # ⚠️ Make sure you run this cell at the end of your notebook before every submission!
