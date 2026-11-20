@@ -771,7 +771,7 @@ top5_families
 
 # ### Import
 
-# In[120]:
+# In[ ]:
 
 
 from sklearn.linear_model import LinearRegression
@@ -781,6 +781,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.ensemble import RandomForestRegressor
 
 
 # ### Prepare Data
@@ -861,7 +862,7 @@ lin_reg = Pipeline([
 lin_reg.fit(X_train, y_train)
 
 
-# Next, I look at the coefficients. For numeric features, a coefficient shows how many minutes the completion time changes when the feature increases by 1 standard deviation (because of scaling). For `treatmentAssignment`, it shows the difference in minutes between the two groups.
+# Next, I look at the coefficients. Each coefficient shows how much the model's predicted time changes, in minutes
 
 # In[133]:
 
@@ -880,6 +881,20 @@ coef_df
 # - `treatmentAssignment_AI-disallowed` (18.9): with the same workload and experience, AI-disallowed tasks took about 19 minutes longer, so AI-allowed tasks took about 19 minutes less.
 # - `priorExperience` (0.24): almost 0, so experience barely affects the time.
 # - `estimatedTimeWithoutAI` (159.1): tasks with a higher estimate tend to take longer. When the estimate increases by 1 standard deviation (about 225 minutes), the actual time is about 159 minutes higher.
+
+# ### Random Forest Model
+# I also train a Random Forest with the same preprocessing step, so I can compare it with Linear Regression.
+# 
+
+# In[ ]:
+
+
+rf = Pipeline([
+    ("preprocess", preprocess),
+    ("model", RandomForestRegressor(random_state=42)),
+])
+rf.fit(X_train, y_train)
+
 
 # ### Evaluate on the Test Set
 
@@ -931,12 +946,14 @@ print(y_test.mean(), y_test.median())
 # [Artificial Analysis Data API documentation](https://artificialanalysis.ai/data-api/docs)
 # 
 # [Plotly](https://plotly.com/python/)
+# 
+# [Scikit-learn](https://scikit-learn.org/stable/)
 
 # ## AI Use Disclosure
 # 
 # I used AI tools to refine project scope and data analysis ideas, improve written explanations. I also used AI to help compare my project scope with the available datasets to ensure the data I selected could actually help answer the questions. I reviewed the final analysis, interpretations, and conclusions myself.
 
-# In[129]:
+# In[138]:
 
 
 # ⚠️ Make sure you run this cell at the end of your notebook before every submission!
