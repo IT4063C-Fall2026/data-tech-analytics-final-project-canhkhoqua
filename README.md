@@ -13,7 +13,7 @@
 | Category          | Score    |
 | ----------------- | -------- |
 | **Setup**         | 10 / 10 |
-| **Execution**     | 10 / 20 |
+| **Execution**     | 20 / 20 |
 | **Documentation** | 10 / 10 |
 | **Presentation**  | 30 / 30 |
 | **Total**         | 70 / 70 |
